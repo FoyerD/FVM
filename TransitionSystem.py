@@ -1,3 +1,4 @@
+from itertools import product
 import networkx as nx
 import matplotlib.pyplot as plt
 from typing import Set, Dict, Tuple, Union, Optional
@@ -291,3 +292,51 @@ class TransitionSystem:
 
         plt.title(title)
         plt.show()
+
+
+
+
+
+class Circuit:
+    def __init__(self, X, R, Y, update_registers, compute_outputs):
+        self.X = X
+        self.R = R
+        self.Y = Y
+        self._update_registers = update_registers
+        self._compute_outputs = compute_outputs
+
+    def update_registers(self, X, R):
+        """
+        Evaluates the circuit given input values and register values.
+
+        :return: new_registers
+        """
+        return self._update_registers(X, R)
+
+    def compute_outputs(self, X, R):
+        """
+        Computes the output values of the circuit given input values and register values.
+
+        :return:  output_values
+        """
+        return self._compute_outputs(X, R)
+
+    def to_transition_system(self):
+        x_combinations = list(product((True, False), repeat=self.X))
+        r_combinations = list(product((True, False), repeat=self.R))
+        S = {(X, R) for X in x_combinations for R in r_combinations}
+        Act = x_combinations
+        I = {(X, (False,)*self.R) for X in x_combinations}
+        T = {(s_from, a, (a, self.update_registers(s_from[0], s_from[1]))) for s_from in S for a in Act}
+        ap = {f'x{i+1}' for i in range(self.X)} | {f'r{i+1}' for i in range(self.R)} | {f'y{i+1}' for i in range(self.Y)}
+        def get_labels(s):
+            """
+            Returns the labels of a state.
+
+            :param s: state
+            :return: labels
+            """
+            return {f'x{i+1}' for i in range(self.X) if s[0][i]} | {f'r{i+1}' for i in range(self.R) if s[1][i]} | {f'y{i+1}' for i in range(self.Y) if self.compute_outputs(s[0], s[1])[i]}
+        L = {s: get_labels(s) for s in S}
+
+        return TransitionSystem(states=S, actions=Act, initial_states=I, transitions=T, atomic_props=ap, labeling_map=L)
